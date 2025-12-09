@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.10.7",
     "numpy>=2.3.4",
     "opencv-python>=4.11.0.86",
+    "torch>=2.9.1",
     "tqdm>=4.67.1",
     "trackpy>=0.7",
 ]
