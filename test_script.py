@@ -8,17 +8,17 @@ import torch
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
-parser.add_argument('--width', type=int, default=1920, help='Width of the image')
-parser.add_argument('--height', type=int, default=1080, help='Height of the image')
-parser.add_argument('--num_particles_min', type=int, default=25, help='Minimum number of particles')
-parser.add_argument('--num_particles_max', type=int, default=50, help='Maximum number of particles')
+parser.add_argument('--width', type=int, default=500, help='Width of the image')
+parser.add_argument('--height', type=int, default=500, help='Height of the image')
+parser.add_argument('--num_particles_min', type=int, default=1, help='Minimum number of particles')
+parser.add_argument('--num_particles_max', type=int, default=1, help='Maximum number of particles')
 parser.add_argument('--wavelength_start', type=float, default=300e-9, help='Start wavelength in meters')
 parser.add_argument('--wavelength_end', type=float, default=700e-9, help='End wavelength in meters')
 parser.add_argument('--num_wavelengths', type=int, default=10, help='Number of wavelengths in the spectrum')
 parser.add_argument('--particle_radius', type=float, default=1.4e-6, help='Average particle radius in meters')
 parser.add_argument('--particle_radius_variation', type=float, default=0.1, help='Variation in particle radius in percent')
-parser.add_argument('--z_min', type=float, default=0, help='Minimum z position of particles')
-parser.add_argument('--z_max', type=float, default=1, help='Maximum z position of particles')
+parser.add_argument('--z_min', type=float, default=-10, help='Minimum z position of particles')
+parser.add_argument('--z_max', type=float, default=20, help='Maximum z position of particles')
 parser.add_argument('--intensity', type=float, default=10, help='Intensity of the particles')
 parser.add_argument('--na', type=float, default=0.7, help='Numerical aperture of the microscope')
 parser.add_argument('--magnification', type=int, default=50, help='Magnification of the microscope')
@@ -36,12 +36,12 @@ torch.manual_seed(args.seed)
 particles = dt.MieSphere(
         refractive_index = args.refractive_index, 
         position = lambda: (
-            np.random.random()*args.height,
-            np.random.random()*args.width,
+            args.height//2,
+            args.width//2,
         ),
         radius = args.particle_radius ,
         position_unit="pixel",
-        z = lambda: args.z_min + np.random.random() * (args.z_max - args.z_min),
+        z = args.z_min,
         L="auto",
         intensity=args.intensity,
     )
@@ -60,20 +60,21 @@ microscopes = [dt.Brightfield(NA=args.na,
 
 noise = dt.Gaussian(sigma=args.noise_sigma)
 
-particle_number = lambda: np.random.randint(args.num_particles_min, args.num_particles_max)
+particle_number = 1
 
 sample = (particles^particle_number)
 image = sum([microscope(sample) for microscope in tqdm.tqdm(microscopes)])
-augmented_image = (image)
+augmented_image = (image >> noise >> dt.NormalizeMinMax())
 
 res = np.zeros((args.height, args.width))
 
 intermediate_image = augmented_image()
 res= intermediate_image[:,:,0]
 
-#add noise and normalize
-res = res - res.min()
-res = res / res.max()
 
+#check if folder z_sweep exists, if not create it
+import os
+if not os.path.exists("z_sweep"):
+    os.makedirs("z_sweep")
 #save image with cv2
-cv2.imwrite("simulated_image.png", (res*255).astype(np.uint8))
+cv2.imwrite(f"z_sweep/{args.z_min}.png", (res*255).astype(np.uint8))
